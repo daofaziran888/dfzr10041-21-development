@@ -73,6 +73,41 @@ npm run dev
 | 租户隔离 | `tenant_isolation` | 租户配置 | 租户编号、租户名称、日志来源 |
 | 格式适配 | `format_adapt` | 适配器配置 | 适配器编号、输入格式、输出格式 |
 
+## 样本覆盖对照与补抽
+
+`sample_job` 与 `dedup_filter` 页面顶部提供同一个可展开的“样本覆盖对照明细”：
+
+- 按来源显示原始分母、`原始 → 去重 → 已归并` 的实际数目；
+- 展开来源可查看每条原始行、去重重复组/代表、归并组/代表和待补原行；
+- 明确列出去重挤掉的原行、归并合并的原行、额度未覆盖的组；
+- 补抽按实际采用明细选择未覆盖组数最多的来源，并在组内补最早待补原行；
+- 采样交付台账与覆盖回执独立确认。已派出的原行不会重复发送；重启后先核对交付，再决定剩余缺口；
+- 同一轮并发确认由锁和幂等键去重，只保留一个补抽结果。
+
+运行题设剧本（初始 A/B/C 数据、C1 重启核对、B2 分组更正、两轮并发确认）：
+
+```bash
+PYTHONPATH=backend backend/.venv/bin/python backend/scripts/run_coverage_scenario.py
+```
+
+接口：
+
+```text
+GET  /api/sample-coverage
+POST /api/sample-coverage/deduplicate
+POST /api/sample-coverage/sample
+POST /api/sample-coverage/claims
+POST /api/sample-coverage/claims/{id}/sample
+POST /api/sample-coverage/claims/{id}/reconcile
+POST /api/sample-coverage/claims/{id}/confirm
+POST /api/sample-coverage/restart
+POST /api/sample-coverage/correction
+POST /api/sample-coverage/scenarios/run
+POST /api/sample-coverage/reset
+```
+
+补抽状态会原子写入 `SAMPLE_COVERAGE_STATE_FILE`（默认 `/tmp/shiyin-sample-coverage-state.json`），因此杀掉并重启 FastAPI 进程后，已派出的 C1 和未确认领用单仍可通过交付台账核清。
+
 ## 约定
 
 - 全部模块共享`frontend/src/views/WorkbenchView.vue|tsx`和一套资源路由。
